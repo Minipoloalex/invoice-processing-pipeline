@@ -1,7 +1,13 @@
+import re
 from rapidfuzz import fuzz
 from models import ExtractedInvoice, ERPVendor, ValidationStatus
 
 NAME_MATCH_THRESHOLD = 80.0
+
+
+def _normalize_name(name: str) -> str:
+    """Lowercase and strip punctuation for comparison."""
+    return re.sub(r"[^\w\s]", "", name.lower()).strip()
 
 
 def validate_invoice(
@@ -19,7 +25,6 @@ def validate_invoice(
     name_score = 0.0
 
     found_invoice_tax_id = extracted.vendorTaxId is not None
-    print(type(extracted.vendorTaxId))
     match_score = 0
     # Exact match on Tax ID
     if found_invoice_tax_id:
@@ -31,13 +36,12 @@ def validate_invoice(
 
     # Fuzzy match on vendor name
     if extracted.vendorName:
+        ext_norm = _normalize_name(extracted.vendorName)
         best_score = 0.0
         best_company: ERPVendor | None = None
         for company in companies:
-            score = fuzz.token_sort_ratio(
-                extracted.vendorName.lower(),
-                company.name.lower(),
-            )
+            erp_norm = _normalize_name(company.name)
+            score = fuzz.token_set_ratio(ext_norm, erp_norm)
             if score > best_score:
                 best_score = score
                 best_company = company
@@ -67,7 +71,7 @@ def validate_invoice(
         return ValidationStatus.FLAGGED, discrepancies, tax_match.id, match_score
 
     if name_match and not tax_match:
-        if not found_invoice_tax_id:        
+        if not found_invoice_tax_id:
             discrepancies.append(
                 f"Tax ID not found in invoice PDF file; "
                 f"vendor name matches '{name_match.name}' with score "
@@ -76,7 +80,7 @@ def validate_invoice(
             return ValidationStatus.PENDING, discrepancies, name_match.id, match_score
         else:
             discrepancies.append(
-                F"Tax ID {extracted.vendorTaxId} not found in ERP; "
+                f"Tax ID {extracted.vendorTaxId} not found in ERP; "
                 f"vendor name matches '{name_match.name}' with score "
                 f"{name_score:.0f}"
             )
