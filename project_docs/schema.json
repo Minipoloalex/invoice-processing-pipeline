@@ -1,0 +1,222 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Portline ERP API",
+        "version": "2.0.0",
+        "description": "Portline's ERP system exposes vendor records and accepts processed invoice submissions. Invoice PDFs are provided separately as downloadable materials. Authenticate with the X-ERP-API-Key header."
+    },
+    "servers": [
+        {
+            "url": "/api/erp",
+            "description": "ERP API base path"
+        }
+    ],
+    "security": [
+        {
+            "ApiKeyAuth": []
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "ApiKeyAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-ERP-API-Key"
+            }
+        },
+        "schemas": {
+            "Company": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "taxId": {
+                        "type": "string"
+                    },
+                    "address": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "country": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ProcessedInvoiceCreate": {
+                "type": "object",
+                "required": [
+                    "fileName",
+                    "extractedData"
+                ],
+                "properties": {
+                    "fileName": {
+                        "type": "string",
+                        "description": "Name of the source PDF file (e.g. 'AmazonWebServices.pdf')"
+                    },
+                    "extractedData": {
+                        "type": "object",
+                        "description": "Extracted invoice data. Recommended fields: invoiceNumber, vendorName, vendorTaxId, issueDate, dueDate, currency, subtotal, taxAmount, totalAmount, lineItems[]"
+                    },
+                    "confidenceScore": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "nullable": true,
+                        "description": "Overall extraction confidence (0.0 to 1.0)"
+                    },
+                    "processingNotes": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Optional notes about the extraction process"
+                    }
+                }
+            },
+            "ProcessedInvoice": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "fileName": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "extractedData": {
+                        "type": "object"
+                    },
+                    "confidenceScore": {
+                        "type": "number",
+                        "nullable": true
+                    },
+                    "processingNotes": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "processedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ProcessedInvoiceListResponse": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProcessedInvoice"
+                        }
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            }
+        }
+    },
+    "paths": {
+        "/companies": {
+            "get": {
+                "summary": "List companies",
+                "description": "Return all vendor companies in the ERP system. Use this to cross-reference and validate vendor data extracted from invoice PDFs.",
+                "operationId": "listErpCompanies",
+                "responses": {
+                    "200": {
+                        "description": "Array of companies",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Company"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/processed-invoices": {
+            "post": {
+                "summary": "Submit processed invoice",
+                "description": "Submit the extraction result for an invoice PDF. Reference the source file by fileName.",
+                "operationId": "submitProcessedInvoice",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProcessedInvoiceCreate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Processed invoice created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProcessedInvoice"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "summary": "List processed invoices",
+                "description": "Return all processed invoices submitted by the candidate.",
+                "operationId": "listProcessedInvoices",
+                "responses": {
+                    "200": {
+                        "description": "Paginated list of processed invoices",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProcessedInvoiceListResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Reset all processed invoices",
+                "description": "Delete all processed invoice submissions for the candidate. Use this to clear your data and re-run your pipeline.",
+                "operationId": "resetProcessedInvoices",
+                "responses": {
+                    "200": {
+                        "description": "Number of deleted submissions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "deleted": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

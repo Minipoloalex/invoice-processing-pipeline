@@ -1,0 +1,82 @@
+[
+    {
+        "id": "c3f6eacf-e97f-4b69-b15b-6f0c1edd6c0c",
+        "name": "Amazon Web Services, Inc.",
+        "taxId": "US-AWS-2014",
+        "address": "410 Terry Ave North, Seattle, WA 98109-5210, US",
+        "country": "US",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    },
+    {
+        "id": "9e0f78fb-67ed-4970-a582-47247b86bce8",
+        "name": "Azure Interior",
+        "taxId": "US-AZURE-INT",
+        "address": "4557 De Silva St, Fremont, CA 94538, US",
+        "country": "US",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    },
+    {
+        "id": "2ad2a99e-622e-4d90-9da9-6491d8c44b1e",
+        "name": "Coolblue B.V.",
+        "taxId": "NL810433941B01",
+        "address": "Weena 664, 3012 CN Rotterdam, Netherlands",
+        "country": "NL",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    },
+    {
+        "id": "cfff4d57-82b1-4f35-b0e1-6db9d9730f57",
+        "name": "e-Luscious Nederland B.V.",
+        "taxId": "NL815254295B01",
+        "address": "Badweg 48, 8401 BL Gorredijk, Netherlands",
+        "country": "NL",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    },
+    {
+        "id": "d6486d5a-2a5f-4b79-bf72-0e462925742d",
+        "name": "Free SAS",
+        "taxId": "FR60421938861",
+        "address": "8 rue de la Ville l'Évêque, 75008 Paris, France",
+        "country": "FR",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    },
+    {
+        "id": "9bddb6bd-9730-4f9c-b07a-c18476f452c4",
+        "name": "Netpresse",
+        "taxId": "FR63530848134",
+        "address": "16 rue Mollien, 92100 Boulogne, France",
+        "country": "FR",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    },
+    {
+        "id": "22ed043b-e16e-4245-8a52-94b522d48c1e",
+        "name": "Oravel Stays Pvt. Ltd.",
+        "taxId": "06AABCO6063D1ZQ",
+        "address": "9th floor, Spaze Palazo, Southern Peripheral Road, Sec-69, Gurgaon 122001, India",
+        "country": "IN",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    },
+    {
+        "id": "f680b269-45ef-4ca7-bb43-3af097104f37",
+        "name": "QualityHosting AG",
+        "taxId": "DE232446240",
+        "address": "Uferweg 40-42, D-63571 Gelnhausen, Germany",
+        "country": "DE",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    },
+    {
+        "id": "947a4101-ea42-4437-9bf4-8d7b553bcec4",
+        "name": "Sammy Maystone",
+        "taxId": "US-MAYSTONE-01",
+        "address": "US",
+        "country": "US",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    },
+    {
+        "id": "6261d009-e29f-4f5c-8199-adbae489e82d",
+        "name": "WS Retail Services Pvt. Ltd.",
+        "taxId": "29670869006",
+        "address": "Ozone Manay Tech Park, No 56/18, B Block, Hosur Road, Bangalore, Karnataka 560068, India",
+        "country": "IN",
+        "createdAt": "2026-03-25T12:45:35.330435Z"
+    }
+]
