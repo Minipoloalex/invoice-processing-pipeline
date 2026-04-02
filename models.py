@@ -5,8 +5,10 @@ from pydantic import BaseModel, Field
 
 
 class ValidationStatus(str, Enum):
-    VERIFIED = "Verified"
     FLAGGED = "Flagged"
+    PENDING = "Pending"
+    VERIFIED = "Verified"
+    COMPLETE = "Complete"
 
 
 class InvoiceItem(BaseModel):
@@ -47,7 +49,7 @@ class ERPVendor(BaseModel):
 class ProcessedInvoice(BaseModel):
     id: str
     fileName: str
-    extractedData: ExtractedInvoice
+    extractedData: ExtractedData
     confidenceScore: Optional[float] = None
     processingNotes: Optional[str] = None
 

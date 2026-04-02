@@ -1,6 +1,6 @@
 import uuid
 import logging
-from models import ProcessedInvoice, ExtractedInvoice, ValidationStatus
+from models import ProcessedInvoice, ExtractedInvoice, ExtractedData
 from services.pdf_extractor import extract_invoice_data
 from services.erp_client import fetch_companies, submit_processed_invoice
 from services.validator import validate_invoice
@@ -20,18 +20,22 @@ async def process_invoice(pdf_bytes: bytes, filename: str) -> ProcessedInvoice:
         extracted, companies
     )
 
-    # 4. Update extracted data with validation results
-    extracted.validationStatus = status
-    extracted.validationErrors = discrepancies
-    extracted.erpVendorId = matched_vendor_id
+    # 4. Build enriched ExtractedData with validation results
+    enriched_data = ExtractedData(
+        **extracted.model_dump(),
+        erpVendorId=matched_vendor_id,
+        validationStatus=status,
+        validationErrors=discrepancies,
+    )
+    print(enriched_data)
 
     # 5. Build notes describing validation outcome
-    notes = f"Validation: {status.value}"
+    notes = f"Automatically validated: {status.value}"
     if discrepancies:
         notes += " | " + "; ".join(discrepancies)
 
     # 6. Submit processed invoice to ERP
-    erp_data = extracted.model_dump(mode="json", exclude_none=True)
+    erp_data = enriched_data.model_dump(mode="json", exclude_none=True)
     await submit_processed_invoice(
         file_name=filename,
         extracted_data=erp_data,
@@ -42,7 +46,7 @@ async def process_invoice(pdf_bytes: bytes, filename: str) -> ProcessedInvoice:
     invoice = ProcessedInvoice(
         id=str(uuid.uuid4()),
         fileName=filename,
-        extractedData=extracted,
+        extractedData=enriched_data,
         confidenceScore=score,
         processingNotes=notes,
     )

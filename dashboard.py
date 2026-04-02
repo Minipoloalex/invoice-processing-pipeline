@@ -136,6 +136,14 @@ def upload_invoice(pdf_bytes: bytes, filename: str):
     )
 
 
+def fetch_invoice_pdf(file_name: str):
+    return httpx.get(
+        f"{API_BASE_URL}/api/invoices/{file_name}/pdf",
+        headers=_headers,
+        timeout=30,
+    )
+
+
 # -- Data loading --------------------------------------------------------------
 @st.cache_data(ttl=30)
 def load_invoices():
@@ -301,8 +309,16 @@ for inv in filtered:
                 unsafe_allow_html=True,
             )
         with row_cols[4]:
-            pdf_url = f"{API_BASE_URL}/api/invoices/{inv['fileName']}/pdf"
-            st.link_button("PDF", pdf_url, use_container_width=True)
+            pdf_resp = fetch_invoice_pdf(inv["fileName"])
+            if pdf_resp.status_code == 200:
+                st.download_button(
+                    "PDF",
+                    data=pdf_resp.content,
+                    file_name=inv["fileName"],
+                    mime="application/pdf",
+                    key=f"dl_{inv['id']}",
+                    use_container_width=True,
+                )
 
         # -- Discrepancy detail for flagged invoices --------------------------
         if status == "Flagged":

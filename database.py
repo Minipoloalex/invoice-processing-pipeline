@@ -1,7 +1,7 @@
 import aiosqlite
 from models import (
     ProcessedInvoice,
-    ExtractedInvoice,
+    ExtractedData,
     InvoiceListResponse,
 )
 from config import DATABASE_PATH
@@ -27,7 +27,7 @@ def _row_to_invoice(row: aiosqlite.Row) -> ProcessedInvoice:
     return ProcessedInvoice(
         id=row["id"],
         fileName=row["fileName"],
-        extractedData=ExtractedInvoice.model_validate_json(row["extractedData"]),
+        extractedData=ExtractedData.model_validate_json(row["extractedData"]),
         confidenceScore=row["confidenceScore"],
         processingNotes=row["processingNotes"],
     )
