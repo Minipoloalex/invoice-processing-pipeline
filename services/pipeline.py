@@ -24,15 +24,16 @@ async def process_invoice(pdf_bytes: bytes, filename: str) -> ProcessedInvoice:
     companies = await fetch_companies()
 
     # Validate extracted data against ERP records
-    status, discrepancies, matched_vendor_id, score = validate_invoice(
+    status, discrepancies, matched_vendor_id, name_matches, match_score = validate_invoice(
         extracted, companies
     )
-    score /= 100
+    match_score /= 100
 
     # Build enriched ExtractedData with validation results
     enriched_data = ExtractedData(
         **extracted.model_dump(),
         erpVendorId=matched_vendor_id,
+        vendorNameMatchOk=name_matches,
         validationStatus=status,
         validationErrors=discrepancies,
     )
@@ -46,7 +47,7 @@ async def process_invoice(pdf_bytes: bytes, filename: str) -> ProcessedInvoice:
     invoice = ProcessedInvoice(
         fileName=filename,
         extractedData=enriched_data,
-        confidenceScore=score,
+        confidenceScore=match_score,
         processingNotes=notes,
     )
 

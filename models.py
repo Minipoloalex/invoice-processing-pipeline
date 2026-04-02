@@ -35,6 +35,7 @@ class ExtractedData(ExtractedInvoice):  # final information (after getting infor
     erpVendorId: Optional[str] = None
     validationStatus: ValidationStatus
     validationErrors: list[str] = Field(default_factory=list)
+    vendorNameMatchOk: bool
 
 
 class ERPVendor(BaseModel):

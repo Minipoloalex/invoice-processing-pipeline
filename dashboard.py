@@ -336,6 +336,7 @@ for inv in filtered:
     due_date = ext.get("dueDate") or "N/A"
     total_amt = ext.get("totalAmount")
     currency = ext.get("currency") or ""
+    name_matches = ext.get("vendorNameMatchOk") or False
     badge = f"badge-{status.lower()}"
 
     with st.container():
@@ -391,7 +392,7 @@ for inv in filtered:
             erp_name = erp.get("name", "") if erp else ""
             erp_tax = erp.get("taxId", "") if erp else ""
 
-            name_ok = bool(erp) and ext_name.lower() == erp_name.lower()
+            name_ok = bool(name_matches)
             tax_ok = bool(erp) and ext_tax.lower() == erp_tax.lower()
 
             st.markdown("#### Extracted vs ERP Record")

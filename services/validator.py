@@ -13,7 +13,7 @@ def _normalize_name(name: str) -> str:
 def validate_invoice(
     extracted: ExtractedInvoice,
     companies: list[ERPVendor],
-) -> tuple[ValidationStatus, list[str], str | None, float]:
+) -> tuple[ValidationStatus, list[str], str | None, bool, float]:
     """Cross-reference extracted data against ERP company records.
 
     Uses exact matching on Tax ID and fuzzy matching on vendor name.
@@ -23,10 +23,9 @@ def validate_invoice(
     discrepancies: list[str] = []
     tax_match: ERPVendor | None = None
     name_match: ERPVendor | None = None
-    name_score = 0.0
+    match_score = 0
 
     found_invoice_tax_id = extracted.vendorTaxId is not None
-    match_score = 0
     # Exact match on Tax ID
     if found_invoice_tax_id:
         for company in companies:
@@ -36,6 +35,7 @@ def validate_invoice(
                 break
 
     # Fuzzy match on vendor name
+    name_score = 0.0
     if extracted.vendorName:
         ext_norm = _normalize_name(extracted.vendorName)
         best_score = 0.0
@@ -50,17 +50,17 @@ def validate_invoice(
         if best_score >= NAME_MATCH_THRESHOLD:
             name_match = best_company
             name_score = best_score
-            match_score = max(match_score, name_score)
 
+    match_score = max(match_score, name_score)
     # Reconcile both matches
     if tax_match and name_match:
         if tax_match.id == name_match.id:
-            return ValidationStatus.PENDING, [], tax_match.id, match_score
+            return ValidationStatus.PENDING, [], tax_match.id, bool(name_match), match_score
         discrepancies.append(
             f"Tax ID matches '{tax_match.name}' but vendor name best matches "
             f"'{name_match.name}' with score {name_score:.0f}%)"
         )
-        return ValidationStatus.FLAGGED, discrepancies, tax_match.id, 0
+        return ValidationStatus.FLAGGED, discrepancies, tax_match.id, bool(name_match), 0
 
     if tax_match and not name_match:
         if extracted.vendorName:
@@ -69,7 +69,7 @@ def validate_invoice(
                 f"(no match above a score of {NAME_MATCH_THRESHOLD:.0f}% threshold)"
             )
         # not sure if this should be pending or flagged
-        return ValidationStatus.FLAGGED, discrepancies, tax_match.id, match_score
+        return ValidationStatus.FLAGGED, discrepancies, tax_match.id, bool(name_match), match_score
 
     if name_match and not tax_match:
         if not found_invoice_tax_id:
@@ -78,16 +78,16 @@ def validate_invoice(
                 f"vendor name matches '{name_match.name}' with score "
                 f"{name_score:.0f}%"
             )
-            return ValidationStatus.PENDING, discrepancies, name_match.id, match_score
+            return ValidationStatus.PENDING, discrepancies, name_match.id, bool(name_match), match_score
         else:
             discrepancies.append(
                 f"Tax ID {extracted.vendorTaxId} not found in ERP; "
                 f"vendor name matches '{name_match.name}' with score "
                 f"{name_score:.0f}"
             )
-            return ValidationStatus.FLAGGED, discrepancies, name_match.id, match_score
+            return ValidationStatus.FLAGGED, discrepancies, name_match.id, bool(name_match), match_score
 
     discrepancies.append(
         "No matching vendor found in ERP: neither Tax ID nor vendor name matched"
     )
-    return ValidationStatus.FLAGGED, discrepancies, None, match_score
+    return ValidationStatus.FLAGGED, discrepancies, None, bool(name_match), match_score
