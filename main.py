@@ -1,13 +1,13 @@
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import Depends, FastAPI, UploadFile, File, Header, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from database import init_db, save_invoice, get_invoices
 from services.pipeline import process_invoice
 from services.erp_client import fetch_companies
 from models import InvoiceListResponse, ProcessedInvoice
-from config import DATABASE_PATH
+from config import DATABASE_PATH, DASHBOARD_API_KEY
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,8 +16,14 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
 PDF_DIR = Path("invoice_pdfs")
+
+
+async def verify_api_key(x_api_key: str | None = Header(None)):
+    if DASHBOARD_API_KEY:
+        if not x_api_key or x_api_key != DASHBOARD_API_KEY:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+    return x_api_key
 
 
 @asynccontextmanager
@@ -41,7 +47,10 @@ app = FastAPI(
     response_model=ProcessedInvoice,
     summary="Upload and process a PDF invoice",
 )
-async def upload_invoice(file: UploadFile = File(...)):
+async def upload_invoice(
+    file: UploadFile = File(...),
+    _api_key: str = Depends(verify_api_key),
+):
     """Accept a PDF invoice, extract data via LLM, validate against ERP,
     submit to ERP, and store locally."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
@@ -70,13 +79,13 @@ async def upload_invoice(file: UploadFile = File(...)):
     response_model=InvoiceListResponse,
     summary="List all processed invoices",
 )
-async def list_invoices():
+async def list_invoices(_api_key: str = Depends(verify_api_key)):
     """Retrieve all processed invoices from the local database."""
     return await get_invoices()
 
 
 @app.get("/api/companies", summary="List ERP vendor companies")
-async def list_companies():
+async def list_companies(_api_key: str = Depends(verify_api_key)):
     """Proxy endpoint: fetch vendor records from the external ERP."""
     companies = await fetch_companies()
     return [c.model_dump() for c in companies]
@@ -86,7 +95,10 @@ async def list_companies():
     "/api/invoices/{file_name:path}/pdf",
     summary="Serve the original PDF for an invoice",
 )
-async def get_invoice_pdf(file_name: str):
+async def get_invoice_pdf(
+    file_name: str,
+    _api_key: str = Depends(verify_api_key),
+):
     pdf_path = PDF_DIR / file_name
     if not pdf_path.exists():
         raise HTTPException(status_code=404, detail="PDF not found")

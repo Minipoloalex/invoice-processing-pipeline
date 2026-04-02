@@ -2,6 +2,7 @@ import httpx
 import logging
 from models import ERPVendor
 from config import ERP_API_KEY, ERP_BASE_URL
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,8 @@ async def fetch_companies() -> list[ERPVendor]:
 async def submit_processed_invoice(
     file_name: str,
     extracted_data: dict,
-    confidence_score: float | None = None,
-    processing_notes: str | None = None,
+    confidence_score: Optional[float] = None,
+    processing_notes: Optional[str] = None,
 ) -> dict:
     payload = {
         "fileName": file_name,
@@ -32,13 +33,16 @@ async def submit_processed_invoice(
     if processing_notes:
         payload["processingNotes"] = processing_notes
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"{ERP_BASE_URL}/processed-invoices",
-            json=payload,
-            headers=_HEADERS,
-        )
-        resp.raise_for_status()
-        result = resp.json()
-        logger.info("Submitted invoice to ERP, id=%s", result.get("id"))
-        return result
+    print(payload)
+    return {}
+    # submit later when it's ready
+    # async with httpx.AsyncClient() as client:
+    #     resp = await client.post(
+    #         f"{ERP_BASE_URL}/processed-invoices",
+    #         json=payload,
+    #         headers=_HEADERS,
+    #     )
+    #     resp.raise_for_status()
+    #     result = resp.json()
+    #     logger.info("Submitted invoice to ERP, id=%s", result.get("id"))
+    #     return result

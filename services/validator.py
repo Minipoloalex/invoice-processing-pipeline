@@ -20,20 +20,20 @@ def validate_invoice(
 
     match_score = 0
     # Exact match on Tax ID
-    if extracted.tax_id:
+    if extracted.vendorTaxId:
         for company in companies:
-            if company.tax_id.lower() == extracted.tax_id.lower():
+            if company.taxId.lower() == extracted.vendorTaxId.lower():
                 tax_match = company
                 match_score = 100
                 break
 
     # Fuzzy match on vendor name
-    if extracted.vendor_name:
+    if extracted.vendorName:
         best_score = 0.0
         best_company: ERPVendor | None = None
         for company in companies:
             score = fuzz.token_sort_ratio(
-                extracted.vendor_name.lower(),
+                extracted.vendorName.lower(),
                 company.name.lower(),
             )
             if score > best_score:
@@ -56,16 +56,16 @@ def validate_invoice(
         return ValidationStatus.FLAGGED, discrepancies, tax_match.id, match_score
 
     if tax_match and not name_match:
-        if extracted.vendor_name:
+        if extracted.vendorName:
             discrepancies.append(
-                f"Vendor name '{extracted.vendor_name}' not found in ERP "
+                f"Vendor name '{extracted.vendorName}' not found in ERP "
                 f"(no match above {NAME_MATCH_THRESHOLD:.0f}% threshold)"
             )
         return ValidationStatus.FLAGGED, discrepancies, tax_match.id, match_score
 
     if name_match and not tax_match:
         discrepancies.append(
-            f"Tax ID '{extracted.tax_id}' not found in ERP; "
+            f"Tax ID '{extracted.vendorTaxId}' not found in ERP; "
             f"vendor name matches '{name_match.name}' by fuzzy match "
             f"(score: {name_score:.0f}%)"
         )

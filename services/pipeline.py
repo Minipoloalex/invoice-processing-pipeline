@@ -1,6 +1,5 @@
 import uuid
 import logging
-from datetime import datetime, timezone
 from models import ProcessedInvoice, ExtractedInvoice, ValidationStatus
 from services.pdf_extractor import extract_invoice_data
 from services.erp_client import fetch_companies, submit_processed_invoice
@@ -21,35 +20,35 @@ async def process_invoice(pdf_bytes: bytes, filename: str) -> ProcessedInvoice:
         extracted, companies
     )
 
-    # 4. Build notes describing validation outcome
+    # 4. Update extracted data with validation results
+    extracted.validationStatus = status
+    extracted.validationErrors = discrepancies
+    extracted.erpVendorId = matched_vendor_id
+
+    # 5. Build notes describing validation outcome
     notes = f"Validation: {status.value}"
     if discrepancies:
         notes += " | " + "; ".join(discrepancies)
 
-    # 5. Submit processed invoice to ERP
+    # 6. Submit processed invoice to ERP
     erp_data = extracted.model_dump(mode="json", exclude_none=True)
-    erp_response = await submit_processed_invoice(
+    await submit_processed_invoice(
         file_name=filename,
         extracted_data=erp_data,
         processing_notes=notes,
     )
 
-    # 6. Assemble the final ProcessedInvoice
-    now = datetime.now(timezone.utc).isoformat()
+    # 7. Assemble the final ProcessedInvoice
     invoice = ProcessedInvoice(
         id=str(uuid.uuid4()),
-        file_name=filename,
-        extracted_data=extracted,
-        validation_status=status,
-        validation_errors=discrepancies,
-        erp_vendor_id=matched_vendor_id,
-        erp_submission_id=erp_response.get("id"),
-        confidence_score=score,
-        created_at=now,
+        fileName=filename,
+        extractedData=extracted,
+        confidenceScore=score,
+        processingNotes=notes,
     )
 
     logger.info(
-        "Processed invoice %s: status=%s, erp_id=%s",
-        invoice.id, status.value, invoice.erp_submission_id,
+        "Processed invoice %s: status=%s",
+        invoice.id, status.value,
     )
     return invoice
