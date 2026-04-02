@@ -1,4 +1,5 @@
 import os
+import time
 import yaml
 import streamlit as st
 import streamlit_authenticator as stauth
@@ -19,8 +20,8 @@ st.markdown(
     """
 <style>
     .kpi-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+        background: var(--secondary-background-color, #ffffff);
+        border: 1px solid var(--border-color, #e5e7eb);
         border-radius: 12px;
         padding: 28px 20px;
         text-align: center;
@@ -48,34 +49,34 @@ st.markdown(
         letter-spacing: 0.3px;
     }
     .badge-flagged {
-        background: #fee2e2;
+        background: rgba(254,226,226,0.85);
         color: #991b1b;
         border: 1px solid #fecaca;
     }
     .badge-pending {
-        background: #fef9c3;
+        background: rgba(254,249,195,0.85);
         color: #854d0e;
         border: 1px solid #fde68a;
     }
     .badge-verified {
-        background: #dcfce7;
+        background: rgba(220,252,231,0.85);
         color: #166534;
         border: 1px solid #bbf7d0;
     }
     .badge-complete {
-        background: #f3f4f6;
+        background: rgba(243,244,246,0.85);
         color: #374151;
         border: 1px solid #d1d5db;
     }
     .cell-match {
-        background: #f0fdf4;
+        background: rgba(240,253,244,0.6);
         border-left: 3px solid #22c55e;
         padding: 6px 10px;
         margin-bottom: 4px;
         border-radius: 4px;
     }
     .cell-mismatch {
-        background: #fef2f2;
+        background: rgba(254,242,242,0.6);
         border-left: 3px solid #ef4444;
         padding: 6px 10px;
         margin-bottom: 4px;
@@ -91,8 +92,15 @@ st.markdown(
     .section-title {
         font-size: 1.1rem;
         font-weight: 700;
-        color: #111827;
+        color: var(--text-color, #111827);
         margin-bottom: 12px;
+    }
+    .table-header {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 </style>
 """,
@@ -229,52 +237,45 @@ with st.sidebar:
     st.divider()
 
     # -- Upload section --------------------------------------------------------
-    st.subheader("Submit Invoice")
-    uploaded_file = st.file_uploader(
-        "Upload a PDF invoice",
+    st.subheader("Submit Invoices")
+    if "upload_counter" not in st.session_state:
+        st.session_state["upload_counter"] = 0
+    uploaded_files = st.file_uploader(
+        "Upload PDF invoices",
         type=["pdf"],
-        key="invoice_upload",
+        accept_multiple_files=True,
+        key=f"invoice_upload_{st.session_state['upload_counter']}",
     )
 
-    if uploaded_file is not None:
-        if st.button("Process Invoice", use_container_width=True, type="primary"):
-            with st.spinner("Extracting and validating invoice..."):
-                try:
-                    resp = upload_invoice(
-                        uploaded_file.getvalue(),
-                        uploaded_file.name,
-                    )
-                    resp.raise_for_status()
-                    result = resp.json()
-                    st.cache_data.clear()
+    if uploaded_files:
+        if st.button("Process Invoices", use_container_width=True, type="primary"):
+            successes = 0
+            failures = 0
+            for f in uploaded_files:
+                with st.spinner(f"Processing {f.name}..."):
+                    try:
+                        resp = upload_invoice(f.getvalue(), f.name)
+                        resp.raise_for_status()
+                        result = resp.json()
 
-                    ext = result["extractedData"]
-                    status = ext["validationStatus"]
-                    vendor = ext.get("vendorName") or "Unknown"
-                    badge = f"badge-{status.lower()}"
+                        ext = result["extractedData"]
+                        status = ext["validationStatus"]
+                        vendor = ext.get("vendorName") or "Unknown"
+                        badge = f"badge-{status.lower()}"
 
-                    st.markdown(
-                        f'<span class="badge {badge}">{status}</span>',
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(f"**{vendor}**")
-                    amt = ext.get("totalAmount")
-                    cur = ext.get("currency", "")
-                    if amt is not None:
-                        st.write(f"Amount: {cur} {amt:,.2f}")
+                        st.success(f"{f.name} processed successfully!")
+                        successes += 1
+                    except httpx.HTTPStatusError as e:
+                        st.error(f"{f.name}: server error ({e.response.text})")
+                        failures += 1
+                    except Exception as e:
+                        st.error(f"{f.name}: failed ({e})")
+                        failures += 1
 
-                    errors = ext.get("validationErrors", [])
-                    if errors:
-                        for err in errors:
-                            st.warning(err)
-
-                    st.success("Invoice processed successfully!")
-                    st.session_state["invoice_upload"] = None
-                    st.rerun()
-                except httpx.HTTPStatusError as e:
-                    st.error(f"Server error: {e.response.text}")
-                except Exception as e:
-                    st.error(f"Upload failed: {e}")
+            if successes:
+                st.session_state["upload_counter"] += 1
+                time.sleep(2)
+                st.rerun()
 
     st.divider()
 
@@ -301,38 +302,55 @@ if search_query:
 
 # -- Invoice list --------------------------------------------------------------
 st.markdown(
-    f'<div class="section-title">Invoices ({len(filtered)})</div>',
-    unsafe_allow_html=True,
+    f"### Invoices ({len(filtered)})"
 )
 
-# Sort by due date (None/missing dates go first)
-filtered.sort(key=lambda i: i["extractedData"].get("dueDate") or "1970-01-01")
+# Sort by due date, then by issue date (None/missing dates go first)
+filtered.sort(key=lambda i:
+    (
+        i["extractedData"].get("dueDate") or i["extractedData"].get("issueDate") or "1970-01-01",
+        i["extractedData"].get("issueDate") or "1970-01-01",
+    )
+)
+
+COL_WIDTHS = [3, 1.5, 1.5, 2, 2, 1.5, 1]
+COL_LABELS = ["Vendor", "Inv. Number", "Issue Date", "Due Date", "Total", "Status", ""]
 
 for inv in filtered:
     ext = inv["extractedData"]
     status = ext["validationStatus"]
     vendor = ext.get("vendorName") or "Unknown"
+    inv_number = ext.get("invoiceNumber") or "N/A"
     inv_date = ext.get("invoiceDate") or "N/A"
+    due_date = ext.get("dueDate") or "N/A"
     total_amt = ext.get("totalAmount")
     currency = ext.get("currency") or ""
     badge = f"badge-{status.lower()}"
 
     with st.container():
-        row_cols = st.columns([3, 2, 2, 1.5, 1])
+        header_cols = st.columns(COL_WIDTHS)
+        for col, label in zip(header_cols, COL_LABELS):
+            with col:
+                st.markdown(f'<div class="table-header">{label}</div>', unsafe_allow_html=True)
+
+        row_cols = st.columns(COL_WIDTHS)
         with row_cols[0]:
             st.markdown(f"**{vendor}**")
-            st.caption(inv["fileName"])
         with row_cols[1]:
-            st.text(inv_date)
+            st.text(inv_number)
         with row_cols[2]:
+            st.text(inv_date)
+        with row_cols[3]:
+            st.text(due_date)
+        with row_cols[4]:
             amt = f"{currency} {total_amt:,.2f}" if total_amt is not None else "N/A"
             st.text(amt)
-        with row_cols[3]:
+        with row_cols[5]:
             st.markdown(
                 f'<span class="badge {badge}">{status}</span>',
                 unsafe_allow_html=True,
             )
-        with row_cols[4]:
+        with row_cols[6]:
             pdf_resp = fetch_invoice_pdf(inv["fileName"])
             if pdf_resp.status_code == 200:
                 st.download_button(
@@ -345,56 +363,107 @@ for inv in filtered:
                 )
 
         # -- Detail expander for all invoices --------------------------
-        with st.expander("Details & Comparison"):
+        with st.expander("Details"):
             errors = ext.get("validationErrors", [])
             if errors:
                 for err in errors:
-                    st.error(err)
+                    if status == "Flagged":
+                        st.error(err)
+                    else:
+                        st.warning(err)
 
             erp_id = ext.get("erpVendorId")
-            if erp_id and erp_id in companies_map:
-                erp = companies_map[erp_id]
+            erp = companies_map.get(erp_id) if erp_id else None
 
-                ext_name = ext.get("vendorName") or ""
-                ext_tax = ext.get("vendorTaxId") or ""
-                erp_name = erp.get("name", "")
-                erp_tax = erp.get("taxId", "")
+            ext_name = ext.get("vendorName") or ""
+            ext_tax = ext.get("vendorTaxId") or ""
+            erp_name = erp.get("name", "") if erp else ""
+            erp_tax = erp.get("taxId", "") if erp else ""
 
-                name_ok = ext_name.lower() == erp_name.lower()
-                tax_ok = ext_tax.lower() == erp_tax.lower()
+            name_ok = bool(erp) and ext_name.lower() == erp_name.lower()
+            tax_ok = bool(erp) and ext_tax.lower() == erp_tax.lower()
 
-                st.markdown("#### Extracted vs ERP Record")
-                left, right = st.columns(2)
+            st.markdown("#### Extracted vs ERP Record")
+            left, right = st.columns(2)
 
-                n_cls = "cell-match" if name_ok else "cell-mismatch"
-                t_cls = "cell-match" if tax_ok else "cell-mismatch"
+            n_cls = "cell-match" if name_ok else "cell-mismatch"
+            t_cls = "cell-match" if tax_ok else "cell-mismatch"
 
-                with left:
-                    st.markdown("**Extracted Data**")
-                    st.markdown(
-                        f'<div class="comparison-label">Vendor Name</div>'
-                        f'<div class="{n_cls}">{ext_name or "N/A"}</div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(
-                        f'<div class="comparison-label">Tax ID</div>'
-                        f'<div class="{t_cls}">{ext_tax or "N/A"}</div>',
-                        unsafe_allow_html=True,
-                    )
+            with left:
+                st.markdown("**Extracted Data**")
+                st.markdown(
+                    f'<div class="comparison-label">Vendor Name</div>'
+                    f'<div class="{n_cls}">{ext_name or "N/A"}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f'<div class="comparison-label">Tax ID</div>'
+                    f'<div class="{t_cls}">{ext_tax or "N/A"}</div>',
+                    unsafe_allow_html=True,
+                )
 
-                with right:
-                    st.markdown("**ERP Record**")
-                    st.markdown(
-                        f'<div class="comparison-label">Vendor Name</div>'
-                        f'<div class="{n_cls}">{erp_name}</div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(
-                        f'<div class="comparison-label">Tax ID</div>'
-                        f'<div class="{t_cls}">{erp_tax}</div>',
-                        unsafe_allow_html=True,
-                    )
+            with right:
+                st.markdown("**ERP Record**")
+                st.markdown(
+                    f'<div class="comparison-label">Vendor Name</div>'
+                    f'<div class="{n_cls}">{erp_name or "N/A"}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f'<div class="comparison-label">Tax ID</div>'
+                    f'<div class="{t_cls}">{erp_tax or "N/A"}</div>',
+                    unsafe_allow_html=True,
+                )
 
+            # -- Financial breakdown -----------------------------------------
+            st.markdown("<div style='margin-top: 24px'></div>", unsafe_allow_html=True)
+            cur = ext.get("currency") or ""
+            fin_cols = st.columns(3)
+            with fin_cols[0]:
+                sub = ext.get("subtotal")
+                st.markdown(f'<div class="comparison-label">Subtotal</div>'
+                            f'<div style="font-size:1.3rem;font-weight:600">{f"{cur} {sub:,.2f}" if sub is not None else "N/A"}</div>',
+                            unsafe_allow_html=True)
+            with fin_cols[1]:
+                tax = ext.get("taxAmount")
+                st.markdown(f'<div class="comparison-label">Tax</div>'
+                            f'<div style="font-size:1.3rem;font-weight:600">{f"{cur} {tax:,.2f}" if tax is not None else "N/A"}</div>',
+                            unsafe_allow_html=True)
+            with fin_cols[2]:
+                tot = ext.get("totalAmount")
+                st.markdown(f'<div class="comparison-label">Total</div>'
+                            f'<div style="font-size:1.3rem;font-weight:600">{f"{cur} {tot:,.2f}" if tot is not None else "N/A"}</div>',
+                            unsafe_allow_html=True)
+
+            line_items = ext.get("lineItems") or []
+            if line_items:
+                st.markdown("#### Items")
+                li_header = st.columns([0.5, 4, 1, 1.5, 1.5])
+                for col, label, align in zip(
+                    li_header,
+                    ["", "Description", "Qty", "Unit Price", "Total"],
+                    ["", "", "", "right", "right"],
+                ):
+                    with col:
+                        align_style = f"text-align:{align};" if align else ""
+                        st.markdown(f'<div class="table-header" style="{align_style}">{label}</div>', unsafe_allow_html=True)
+                for idx, item in enumerate(line_items, 1):
+                    li_cols = st.columns([0.5, 4, 1, 1.5, 1.5])
+                    with li_cols[0]:
+                        st.text(str(idx))
+                    with li_cols[1]:
+                        st.text(item.get("description") or "N/A")
+                    with li_cols[2]:
+                        qty = item.get("quantity")
+                        st.text(f"{qty:,.0f}" if qty is not None else "N/A")
+                    with li_cols[3]:
+                        up = item.get("unitPrice")
+                        st.markdown(f'<div style="text-align:right">{f"{cur} {up:,.2f}" if up is not None else "N/A"}</div>', unsafe_allow_html=True)
+                    with li_cols[4]:
+                        t = item.get("total")
+                        st.markdown(f'<div style="text-align:right">{f"{cur} {t:,.2f}" if t is not None else "N/A"}</div>', unsafe_allow_html=True)
+
+            st.markdown("<div style='margin-top: 16px'></div>", unsafe_allow_html=True)
             with st.expander("Raw Extracted Data"):
                 st.json(ext)
 
