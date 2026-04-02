@@ -1,11 +1,14 @@
 import re
 import logging
+from pathlib import Path
 from models import ProcessedInvoice, ExtractedInvoice, ExtractedData
 from services.pdf_extractor import extract_invoice_data
 from services.erp_client import fetch_companies, submit_processed_invoice
 from services.validator import validate_invoice
 
 logger = logging.getLogger(__name__)
+
+PDF_DIR = Path("invoice_pdfs")
 
 
 async def process_invoice(pdf_bytes: bytes, filename: str) -> ProcessedInvoice:
@@ -50,6 +53,10 @@ async def process_invoice(pdf_bytes: bytes, filename: str) -> ProcessedInvoice:
     # Submit to ERP
     erp_response = await submit_processed_invoice(invoice)
     invoice.id = erp_response["id"]
+
+    # Save PDF for later preview
+    PDF_DIR.mkdir(exist_ok=True)
+    (PDF_DIR / filename).write_bytes(pdf_bytes)
 
     logger.info(
         "Processed invoice %s: status=%s",

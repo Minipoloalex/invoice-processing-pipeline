@@ -20,12 +20,12 @@ st.markdown(
     """
 <style>
     .kpi-card {
-        background: var(--secondary-background-color, #ffffff);
-        border: 1px solid var(--border-color, #e5e7eb);
+        background: rgba(128, 128, 128, 0.1);
+        border: 1px solid var(--border-color);
         border-radius: 12px;
         padding: 28px 20px;
         text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
     .kpi-value {
         font-size: 2.6rem;
@@ -34,7 +34,8 @@ st.markdown(
     }
     .kpi-label {
         font-size: 0.85rem;
-        color: #6b7280;
+        color: var(--text-color);
+        opacity: 0.6;
         margin-top: 6px;
         font-weight: 500;
         text-transform: uppercase;
@@ -49,42 +50,46 @@ st.markdown(
         letter-spacing: 0.3px;
     }
     .badge-flagged {
-        background: rgba(254,226,226,0.85);
-        color: #991b1b;
-        border: 1px solid #fecaca;
+        background: rgba(239,68,68,0.15);
+        color: #ef4444;
+        border: 1px solid rgba(239,68,68,0.4);
     }
     .badge-pending {
-        background: rgba(254,249,195,0.85);
-        color: #854d0e;
-        border: 1px solid #fde68a;
+        background: rgba(234,179,8,0.15);
+        color: #eab308;
+        border: 1px solid rgba(234,179,8,0.4);
     }
     .badge-verified {
-        background: rgba(220,252,231,0.85);
-        color: #166534;
-        border: 1px solid #bbf7d0;
+        background: rgba(34,197,94,0.15);
+        color: #22c55e;
+        border: 1px solid rgba(34,197,94,0.4);
     }
     .badge-complete {
-        background: rgba(243,244,246,0.85);
-        color: #374151;
-        border: 1px solid #d1d5db;
+        background: rgba(107,114,128,0.15);
+        color: var(--text-color);
+        opacity: 0.7;
+        border: 1px solid rgba(107,114,128,0.3);
     }
     .cell-match {
-        background: rgba(240,253,244,0.6);
+        background: rgba(34,197,94,0.1);
         border-left: 3px solid #22c55e;
         padding: 6px 10px;
         margin-bottom: 4px;
         border-radius: 4px;
+        color: var(--text-color);
     }
     .cell-mismatch {
-        background: rgba(254,242,242,0.6);
+        background: rgba(239,68,68,0.1);
         border-left: 3px solid #ef4444;
         padding: 6px 10px;
         margin-bottom: 4px;
         border-radius: 4px;
+        color: var(--text-color);
     }
     .comparison-label {
         font-size: 0.75rem;
-        color: #9ca3af;
+        color: var(--text-color);
+        opacity: 0.5;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         margin-bottom: 2px;
@@ -92,13 +97,19 @@ st.markdown(
     .section-title {
         font-size: 1.1rem;
         font-weight: 700;
-        color: var(--text-color, #111827);
+        color: var(--text-color);
         margin-bottom: 12px;
+    }
+    .finance-value {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--text-color);
     }
     .table-header {
         font-size: 0.78rem;
         font-weight: 600;
-        color: #9ca3af;
+        color: var(--text-color);
+        opacity: 0.5;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
@@ -422,17 +433,17 @@ for inv in filtered:
             with fin_cols[0]:
                 sub = ext.get("subtotal")
                 st.markdown(f'<div class="comparison-label">Subtotal</div>'
-                            f'<div style="font-size:1.3rem;font-weight:600">{f"{cur} {sub:,.2f}" if sub is not None else "N/A"}</div>',
+                            f'<div class="finance-value">{f"{cur} {sub:,.2f}" if sub is not None else "N/A"}</div>',
                             unsafe_allow_html=True)
             with fin_cols[1]:
                 tax = ext.get("taxAmount")
                 st.markdown(f'<div class="comparison-label">Tax</div>'
-                            f'<div style="font-size:1.3rem;font-weight:600">{f"{cur} {tax:,.2f}" if tax is not None else "N/A"}</div>',
+                            f'<div class="finance-value">{f"{cur} {tax:,.2f}" if tax is not None else "N/A"}</div>',
                             unsafe_allow_html=True)
             with fin_cols[2]:
                 tot = ext.get("totalAmount")
                 st.markdown(f'<div class="comparison-label">Total</div>'
-                            f'<div style="font-size:1.3rem;font-weight:600">{f"{cur} {tot:,.2f}" if tot is not None else "N/A"}</div>',
+                            f'<div class="finance-value">{f"{cur} {tot:,.2f}" if tot is not None else "N/A"}</div>',
                             unsafe_allow_html=True)
 
             line_items = ext.get("lineItems") or []
@@ -468,5 +479,5 @@ for inv in filtered:
                 st.json(ext)
 
     st.markdown(
-        "<hr style='margin:4px 0;border-color:#f3f4f6'>", unsafe_allow_html=True
+        "<hr style='margin:4px 0;border-color:var(--border-color)'>", unsafe_allow_html=True
     )

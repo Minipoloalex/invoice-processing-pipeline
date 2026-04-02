@@ -64,9 +64,6 @@ async def upload_invoice(
         logger.exception("Invoice processing failed for %s", file.filename)
         raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
 
-    # Persist the PDF for later preview
-    (PDF_DIR / file.filename).write_bytes(pdf_bytes)
-
     logger.info("Processed invoice %s", invoice.fileName)
     return invoice
 
