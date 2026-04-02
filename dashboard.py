@@ -47,15 +47,25 @@ st.markdown(
         font-size: 0.82rem;
         letter-spacing: 0.3px;
     }
+    .badge-flagged {
+        background: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+    .badge-pending {
+        background: #fef9c3;
+        color: #854d0e;
+        border: 1px solid #fde68a;
+    }
     .badge-verified {
         background: #dcfce7;
         color: #166534;
         border: 1px solid #bbf7d0;
     }
-    .badge-flagged {
-        background: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fecaca;
+    .badge-complete {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
     }
     .cell-match {
         background: #f0fdf4;
@@ -160,22 +170,23 @@ def load_companies():
 
 
 data = load_invoices()
-print(data)
 invoices = data.get("items", [])
 total = data.get("total", 0)
 companies_map = load_companies()
 
 flagged = [i for i in invoices if i["extractedData"]["validationStatus"] == "Flagged"]
+pending = [i for i in invoices if i["extractedData"]["validationStatus"] == "Pending"]
 verified = [i for i in invoices if i["extractedData"]["validationStatus"] == "Verified"]
+complete = [i for i in invoices if i["extractedData"]["validationStatus"] == "Complete"]
 
 # -- KPI Cards -----------------------------------------------------------------
-kpi1, kpi2, kpi3 = st.columns(3)
+kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
 with kpi1:
     st.markdown(
         f"""<div class="kpi-card">
-            <div class="kpi-value" style="color:#111827">{total}</div>
-            <div class="kpi-label">Total Processed</div>
+            <div class="kpi-value" style="color:#dc2626">{len(flagged)}</div>
+            <div class="kpi-label">Needs Attention</div>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -183,8 +194,8 @@ with kpi1:
 with kpi2:
     st.markdown(
         f"""<div class="kpi-card">
-            <div class="kpi-value" style="color:#dc2626">{len(flagged)}</div>
-            <div class="kpi-label">Needs Attention</div>
+            <div class="kpi-value" style="color:#ca8a04">{len(pending)}</div>
+            <div class="kpi-label">Pending Review</div>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -194,6 +205,15 @@ with kpi3:
         f"""<div class="kpi-card">
             <div class="kpi-value" style="color:#16a34a">{len(verified)}</div>
             <div class="kpi-label">Ready for Payment</div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+with kpi4:
+    st.markdown(
+        f"""<div class="kpi-card">
+            <div class="kpi-value" style="color:#6b7280">{len(complete)}</div>
+            <div class="kpi-label">Paid</div>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -231,7 +251,7 @@ with st.sidebar:
                     ext = result["extractedData"]
                     status = ext["validationStatus"]
                     vendor = ext.get("vendorName") or "Unknown"
-                    badge = "badge-verified" if status == "Verified" else "badge-flagged"
+                    badge = f"badge-{status.lower()}"
 
                     st.markdown(
                         f'<span class="badge {badge}">{status}</span>',
@@ -249,6 +269,7 @@ with st.sidebar:
                             st.warning(err)
 
                     st.success("Invoice processed successfully!")
+                    st.session_state["invoice_upload"] = None
                     st.rerun()
                 except httpx.HTTPStatusError as e:
                     st.error(f"Server error: {e.response.text}")
@@ -259,7 +280,7 @@ with st.sidebar:
 
     # -- Filters ---------------------------------------------------------------
     st.subheader("Filters")
-    status_filter = st.selectbox("Status", ["All", "Verified", "Flagged"])
+    status_filter = st.selectbox("Status", ["All", "Flagged", "Pending", "Verified", "Complete"])
     search_query = st.text_input("Search Vendor")
 
     if st.button("Refresh Data", use_container_width=True):
@@ -284,6 +305,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Sort by due date (None/missing dates go first)
+filtered.sort(key=lambda i: i["extractedData"].get("dueDate") or "1970-01-01")
+
 for inv in filtered:
     ext = inv["extractedData"]
     status = ext["validationStatus"]
@@ -291,7 +315,7 @@ for inv in filtered:
     inv_date = ext.get("invoiceDate") or "N/A"
     total_amt = ext.get("totalAmount")
     currency = ext.get("currency") or ""
-    badge = "badge-verified" if status == "Verified" else "badge-flagged"
+    badge = f"badge-{status.lower()}"
 
     with st.container():
         row_cols = st.columns([3, 2, 2, 1.5, 1])
@@ -320,60 +344,59 @@ for inv in filtered:
                     use_container_width=True,
                 )
 
-        # -- Discrepancy detail for flagged invoices --------------------------
-        if status == "Flagged":
-            with st.expander("Discrepancies & Comparison"):
-                errors = ext.get("validationErrors", [])
-                if errors:
-                    for err in errors:
-                        st.error(err)
+        # -- Detail expander for all invoices --------------------------
+        with st.expander("Details & Comparison"):
+            errors = ext.get("validationErrors", [])
+            if errors:
+                for err in errors:
+                    st.error(err)
 
-                erp_id = ext.get("erpVendorId")
-                if erp_id and erp_id in companies_map:
-                    erp = companies_map[erp_id]
+            erp_id = ext.get("erpVendorId")
+            if erp_id and erp_id in companies_map:
+                erp = companies_map[erp_id]
 
-                    ext_name = ext.get("vendorName") or ""
-                    ext_tax = ext.get("vendorTaxId") or ""
-                    erp_name = erp.get("name", "")
-                    erp_tax = erp.get("taxId", "")
+                ext_name = ext.get("vendorName") or ""
+                ext_tax = ext.get("vendorTaxId") or ""
+                erp_name = erp.get("name", "")
+                erp_tax = erp.get("taxId", "")
 
-                    name_ok = ext_name.lower() == erp_name.lower()
-                    tax_ok = ext_tax.lower() == erp_tax.lower()
+                name_ok = ext_name.lower() == erp_name.lower()
+                tax_ok = ext_tax.lower() == erp_tax.lower()
 
-                    st.markdown("#### Extracted vs ERP Record")
-                    left, right = st.columns(2)
+                st.markdown("#### Extracted vs ERP Record")
+                left, right = st.columns(2)
 
-                    n_cls = "cell-match" if name_ok else "cell-mismatch"
-                    t_cls = "cell-match" if tax_ok else "cell-mismatch"
+                n_cls = "cell-match" if name_ok else "cell-mismatch"
+                t_cls = "cell-match" if tax_ok else "cell-mismatch"
 
-                    with left:
-                        st.markdown("**Extracted Data**")
-                        st.markdown(
-                            f'<div class="comparison-label">Vendor Name</div>'
-                            f'<div class="{n_cls}">{ext_name or "N/A"}</div>',
-                            unsafe_allow_html=True,
-                        )
-                        st.markdown(
-                            f'<div class="comparison-label">Tax ID</div>'
-                            f'<div class="{t_cls}">{ext_tax or "N/A"}</div>',
-                            unsafe_allow_html=True,
-                        )
+                with left:
+                    st.markdown("**Extracted Data**")
+                    st.markdown(
+                        f'<div class="comparison-label">Vendor Name</div>'
+                        f'<div class="{n_cls}">{ext_name or "N/A"}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        f'<div class="comparison-label">Tax ID</div>'
+                        f'<div class="{t_cls}">{ext_tax or "N/A"}</div>',
+                        unsafe_allow_html=True,
+                    )
 
-                    with right:
-                        st.markdown("**ERP Record**")
-                        st.markdown(
-                            f'<div class="comparison-label">Vendor Name</div>'
-                            f'<div class="{n_cls}">{erp_name}</div>',
-                            unsafe_allow_html=True,
-                        )
-                        st.markdown(
-                            f'<div class="comparison-label">Tax ID</div>'
-                            f'<div class="{t_cls}">{erp_tax}</div>',
-                            unsafe_allow_html=True,
-                        )
+                with right:
+                    st.markdown("**ERP Record**")
+                    st.markdown(
+                        f'<div class="comparison-label">Vendor Name</div>'
+                        f'<div class="{n_cls}">{erp_name}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        f'<div class="comparison-label">Tax ID</div>'
+                        f'<div class="{t_cls}">{erp_tax}</div>',
+                        unsafe_allow_html=True,
+                    )
 
-                with st.expander("Raw Extracted Data"):
-                    st.json(ext)
+            with st.expander("Raw Extracted Data"):
+                st.json(ext)
 
     st.markdown(
         "<hr style='margin:4px 0;border-color:#f3f4f6'>", unsafe_allow_html=True

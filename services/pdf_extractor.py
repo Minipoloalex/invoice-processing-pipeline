@@ -25,7 +25,7 @@ Return ONLY valid JSON. Don't include fields you cannot find."""
 async def extract_invoice_data(pdf_bytes: bytes, filename: str) -> ExtractedInvoice:
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-    response = client.models.generate_content(
+    response = await client.aio.models.generate_content(
         model=GEMINI_MODEL,
         contents=[
             genai.types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
