@@ -10,7 +10,7 @@ The project was implemented using Python, with libraries managed by `uv`. The pr
 - `streamlit` and `streamlit-authenticator` for the implementation of the dashboard and authentication
 
 ## Project Structure
-```
+```bash
 services/
     erp_client.py       # communicates with the ERP database
     pdf_extractor.py    # handles extracting information from an invoice PDF
@@ -100,8 +100,7 @@ For controlling the state of an invoice, the implementation uses 4 possible stat
 - Verified: an analyst has verified the invoice information, making it ready for payment (not implemented)
 - Complete: invoice marked by a manager as paid (not implemented)
 
-
-## Dashboard UI
+## Dashboard
 The dashboard requires logging in. The username is `admin` and password `admin123`.
 
 The dashboard presents several features:
@@ -109,9 +108,13 @@ The dashboard presents several features:
 - Listing processed invoices, filtered according to their status (e.g., flagged) or according to the company's name.
 - Consulting detailed information from each invoice, including the comparison with the ERP database company records. It also supports downloading the originally submitted invoice PDF file.
 
-| Main dashboard | Expanded Invoice |
-| :-: | :-: |
-| ![Dashboard image](project_docs/dashboard-image.png) | ![Expanded Invoice Image](project_docs/expanded-invoice-image.png)
+| Main dashboard |
+| :-: |
+| ![Dashboard image](project_docs/dashboard-image.png) |
+
+| Expanded Invoice |
+| :-: |
+| ![Expanded Invoice Image](project_docs/expanded-invoice-image.png) |
 
 ## Future work
 - Modify an invoice's status
