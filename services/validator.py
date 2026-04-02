@@ -17,7 +17,8 @@ def validate_invoice(
     """Cross-reference extracted data against ERP company records.
 
     Uses exact matching on Tax ID and fuzzy matching on vendor name.
-    Returns (status, discrepancies, matched_vendor_id).
+    Returns (status, discrepancies, matched_vendor_id, score).
+    The score is bounded within [0, 100].
     """
     discrepancies: list[str] = []
     tax_match: ERPVendor | None = None

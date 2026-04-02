@@ -1,5 +1,4 @@
 import re
-import uuid
 import logging
 from models import ProcessedInvoice, ExtractedInvoice, ExtractedData
 from services.pdf_extractor import extract_invoice_data
@@ -25,6 +24,7 @@ async def process_invoice(pdf_bytes: bytes, filename: str) -> ProcessedInvoice:
     status, discrepancies, matched_vendor_id, score = validate_invoice(
         extracted, companies
     )
+    score /= 100
 
     # Build enriched ExtractedData with validation results
     enriched_data = ExtractedData(
@@ -39,22 +39,17 @@ async def process_invoice(pdf_bytes: bytes, filename: str) -> ProcessedInvoice:
     if discrepancies:
         notes += " | " + "; ".join(discrepancies)
 
-    # Submit processed invoice to ERP
-    erp_data = enriched_data.model_dump(mode="json", exclude_none=True)
-    await submit_processed_invoice(
-        file_name=filename,
-        extracted_data=erp_data,
-        processing_notes=notes,
-    )
-
-    # Assemble the final ProcessedInvoice
+    # Build invoice
     invoice = ProcessedInvoice(
-        id=str(uuid.uuid4()),
         fileName=filename,
         extractedData=enriched_data,
         confidenceScore=score,
         processingNotes=notes,
     )
+
+    # Submit to ERP
+    erp_response = await submit_processed_invoice(invoice)
+    invoice.id = erp_response["id"]
 
     logger.info(
         "Processed invoice %s: status=%s",

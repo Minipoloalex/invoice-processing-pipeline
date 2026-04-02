@@ -1,8 +1,7 @@
 import httpx
 import logging
-from models import ERPVendor
+from models import ERPVendor, ProcessedInvoice
 from config import ERP_API_KEY, ERP_BASE_URL
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,31 +17,27 @@ async def fetch_companies() -> list[ERPVendor]:
         return companies
 
 
-async def submit_processed_invoice(
-    file_name: str,
-    extracted_data: dict,
-    confidence_score: Optional[float] = None,
-    processing_notes: Optional[str] = None,
-) -> dict:
-    payload = {
-        "fileName": file_name,
-        "extractedData": extracted_data,
-    }
-    if confidence_score is not None:
-        payload["confidenceScore"] = confidence_score
-    if processing_notes:
-        payload["processingNotes"] = processing_notes
+async def submit_processed_invoice(invoice: ProcessedInvoice) -> dict:
+    payload = invoice.model_dump(mode="json", exclude_none=True)
+    payload.pop("id", None)
 
-    print(payload)
-    return {}
-    # submit later when it's ready
-    # async with httpx.AsyncClient() as client:
-    #     resp = await client.post(
-    #         f"{ERP_BASE_URL}/processed-invoices",
-    #         json=payload,
-    #         headers=_HEADERS,
-    #     )
-    #     resp.raise_for_status()
-    #     result = resp.json()
-    #     logger.info("Submitted invoice to ERP, id=%s", result.get("id"))
-    #     return result
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{ERP_BASE_URL}/processed-invoices",
+            json=payload,
+            headers=_HEADERS,
+        )
+        resp.raise_for_status()
+        result = resp.json()
+        logger.info("Submitted invoice to ERP, id=%s", result.get("id"))
+        return result
+
+
+async def fetch_processed_invoices() -> dict:
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{ERP_BASE_URL}/processed-invoices",
+            headers=_HEADERS,
+        )
+        resp.raise_for_status()
+        return resp.json()

@@ -47,7 +47,7 @@ class ERPVendor(BaseModel):
 
 
 class ProcessedInvoice(BaseModel):
-    id: str
+    id: Optional[str] = None
     fileName: str
     extractedData: ExtractedData
     confidenceScore: Optional[float] = None

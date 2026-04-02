@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# -- Custom CSS (FinTech aesthetic) -------------------------------------------
+# -- Custom CSS -------------------------------------------
 st.markdown(
     """
 <style>
@@ -274,7 +274,7 @@ with st.sidebar:
 
             if successes:
                 st.session_state["upload_counter"] += 1
-                time.sleep(2)
+                time.sleep(2)   # Give time for the user to see the success/error message
                 st.rerun()
 
     st.divider()

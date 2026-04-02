@@ -2,12 +2,11 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import Depends, FastAPI, UploadFile, File, Header, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
-from database import init_db, save_invoice, get_invoices
+from fastapi.responses import FileResponse
 from services.pipeline import process_invoice
-from services.erp_client import fetch_companies
-from models import InvoiceListResponse, ProcessedInvoice
-from config import DATABASE_PATH, DASHBOARD_API_KEY
+from services.erp_client import fetch_companies, fetch_processed_invoices
+from models import InvoiceListResponse, ProcessedInvoice, ExtractedData
+from config import DASHBOARD_API_KEY
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,8 +28,7 @@ async def verify_api_key(x_api_key: str | None = Header(None)):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     PDF_DIR.mkdir(exist_ok=True)
-    await init_db()
-    logger.info("Database initialized")
+    logger.info("Application started")
     yield
 
 
@@ -52,7 +50,7 @@ async def upload_invoice(
     _api_key: str = Depends(verify_api_key),
 ):
     """Accept a PDF invoice, extract data via LLM, validate against ERP,
-    submit to ERP, and store locally."""
+    submit to ERP, and return the processed invoice."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
@@ -69,8 +67,7 @@ async def upload_invoice(
     # Persist the PDF for later preview
     (PDF_DIR / file.filename).write_bytes(pdf_bytes)
 
-    await save_invoice(invoice)
-    logger.info("Saved invoice %s to database", invoice.id)
+    logger.info("Processed invoice %s", invoice.fileName)
     return invoice
 
 
@@ -80,8 +77,19 @@ async def upload_invoice(
     summary="List all processed invoices",
 )
 async def list_invoices(_api_key: str = Depends(verify_api_key)):
-    """Retrieve all processed invoices from the local database."""
-    return await get_invoices()
+    """Retrieve all processed invoices from the ERP."""
+    data = await fetch_processed_invoices()
+    items = [
+        ProcessedInvoice(
+            id=item["id"],
+            fileName=item.get("fileName", ""),
+            extractedData=ExtractedData.model_validate(item["extractedData"]),
+            confidenceScore=item.get("confidenceScore"),
+            processingNotes=item.get("processingNotes"),
+        )
+        for item in data.get("items", [])
+    ]
+    return InvoiceListResponse(items=items, total=data.get("total", len(items)))
 
 
 @app.get("/api/companies", summary="List ERP vendor companies")
